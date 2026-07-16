@@ -11,6 +11,7 @@ namespace RoyalVilla_API.Data
              
         }
         public DbSet<Villa> Villa { get; set; }
+        public DbSet<User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
