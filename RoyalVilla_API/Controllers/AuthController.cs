@@ -15,7 +15,7 @@ namespace RoyalVilla_API.Controllers
             _authService = authService;
         }
 
-        [HttpPost]
+        [HttpPost("Register")]
         public async Task<ActionResult<ApiResponse<UserDTO>>> Register([FromBody]RegistrationRequestDTO registrationRequestDTO)
         {
             try
@@ -39,6 +39,32 @@ namespace RoyalVilla_API.Controllers
 
                 var response = ApiResponse<UserDTO>.CreatedAt(user, "User Registered Successfully");
                 return CreatedAtAction(nameof(Register), response);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        [HttpPost("Login")]
+        public async Task<ActionResult<ApiResponse<LoginResponseDTO>>> Login([FromBody] LoginRequestDTO loginRequestDTO)
+        {
+            try
+            {
+                //auth service
+                if (loginRequestDTO == null)
+                {
+                    return BadRequest(ApiResponse<object>.BadRequest("Login data is required."));
+                }
+
+                var loginResponse = await _authService.LoginAsync(loginRequestDTO);
+                if (loginResponse == null)
+                {
+                    return BadRequest(ApiResponse<object>.BadRequest("User login failed."));
+                }
+
+                var response = ApiResponse<LoginResponseDTO>.Ok(loginResponse, "User Logged In Successfully");
+                return Ok(response);
             }
             catch (Exception ex)
             {
