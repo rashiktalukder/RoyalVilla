@@ -5,6 +5,7 @@ using Microsoft.OpenApi;
 using RoyalVilla_API.Data;
 using RoyalVilla_API.Models;
 using RoyalVilla_API.Models.DTO;
+using RoyalVilla_API.Models.DTO.VillaAmenities;
 using RoyalVilla_API.Services;
 using Scalar.AspNetCore;
 using System.Text;
@@ -72,6 +73,13 @@ builder.Services.AddAutoMapper(o =>
     o.CreateMap<Villa, VillaDTO>().ReverseMap();
     o.CreateMap<VillaUpdateDTO, VillaDTO>().ReverseMap();
     o.CreateMap<User, UserDTO>().ReverseMap();
+
+    o.CreateMap<VillaAmenities, VillaAmenitiesCreateDTO>().ReverseMap();
+    o.CreateMap<VillaAmenities, VillaAmenitiesUpdateDTO>().ReverseMap();
+    o.CreateMap<VillaAmenities, VillaAmenitiesDTO>()
+    .ForMember(dest=>dest.VillaName, opt=>opt.MapFrom(src=>src.Villa!=null ? src.Villa.Name : null));
+    o.CreateMap<VillaAmenitiesDTO, VillaAmenities>();
+
 });
 
 builder.Services.AddScoped<IAuthService, AuthService>();

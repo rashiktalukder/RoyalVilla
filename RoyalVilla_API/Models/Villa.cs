@@ -14,5 +14,7 @@ namespace RoyalVilla_API.Models
         public string? ImageUrl { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? UpdatedDate { get; set; }
+
+        public ICollection<VillaAmenities>? Amenities { get; set; } = new List<VillaAmenities>();
     }
 }
