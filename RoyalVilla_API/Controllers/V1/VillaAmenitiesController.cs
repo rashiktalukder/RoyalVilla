@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using Asp.Versioning;
+using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,9 +8,10 @@ using RoyalVilla_API.Models;
 using RoyalVilla_API.Models.DTO;
 using RoyalVilla_API.Models.DTO.VillaAmenities;
 
-namespace RoyalVilla_API.Controllers
+namespace RoyalVilla_API.Controllers.V1
 {
-    [Route("api/villa-amenities")]
+    [Route("api/v{version:apiVersion}/villa-amenities")]
+    [ApiVersion("1.0")]
     [ApiController]
     public class VillaAmenitiesController : ControllerBase
     {

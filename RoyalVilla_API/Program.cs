@@ -1,3 +1,5 @@
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -33,38 +35,74 @@ builder.Services.AddAuthentication(option =>
     };
 });
 
+builder.Services.AddApiVersioning(options =>
+{
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.ReportApiVersions = true;
+}).AddApiExplorer(option => {
+    option.GroupNameFormat = "'v'VVV";
+    option.SubstituteApiVersionInUrl = true;
+});
+
+
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(option =>
 {
     option.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi(options =>
+
+var builderProvider = builder.Services.BuildServiceProvider().GetRequiredService<IApiVersionDescriptionProvider>();
+
+foreach (var desc in builderProvider.ApiVersionDescriptions)
 {
-    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    var versionName = desc.GroupName;
+    var versionNumber = desc.ApiVersion.ToString();
+    var displayName = $"Demo API -- {versionNumber}";
+
+    builder.Services.AddOpenApi(versionName,options =>
     {
-        document.Components ??= new();
-        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>
+        options.AddDocumentTransformer((document, context, cancellationToken) =>
         {
-            ["Bearer"] = new OpenApiSecurityScheme
+            document.Info = new OpenApiInfo
             {
-                Type = SecuritySchemeType.Http,
-                Scheme = "bearer",
-                BearerFormat = "JWT",
-                Description = "Enter JWT Bearer token"
-            }
-        };
-        document.Security = [
-            new OpenApiSecurityRequirement{
+                Title = "Demo Royal Api",
+                Version = versionName,
+                Description = displayName,
+                Contact = new OpenApiContact
+                {
+                    Name = "Rashik Talukder",
+                    Email = "rashik.talukder@example.com"
+                }
+            };
+
+            document.Components ??= new();
+            document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>
+            {
+                ["Bearer"] = new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    Description = "Enter JWT Bearer token"
+                }
+            };
+            document.Security = [
+                new OpenApiSecurityRequirement{
                 { new OpenApiSecuritySchemeReference("Bearer"), new List<string>() }
             }
-        ];
+            ];
 
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        });
+
     });
-    
-});
+}
+
+
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
 
 builder.Services.AddAutoMapper(o =>
 {
@@ -77,7 +115,7 @@ builder.Services.AddAutoMapper(o =>
     o.CreateMap<VillaAmenities, VillaAmenitiesCreateDTO>().ReverseMap();
     o.CreateMap<VillaAmenities, VillaAmenitiesUpdateDTO>().ReverseMap();
     o.CreateMap<VillaAmenities, VillaAmenitiesDTO>()
-    .ForMember(dest=>dest.VillaName, opt=>opt.MapFrom(src=>src.Villa!=null ? src.Villa.Name : null));
+    .ForMember(dest => dest.VillaName, opt => opt.MapFrom(src => src.Villa != null ? src.Villa.Name : null));
     o.CreateMap<VillaAmenitiesDTO, VillaAmenities>();
 
 });
@@ -89,8 +127,28 @@ await SeedDataAsync(app);
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    app.MapOpenApi("/openapi/{documentName}.json");
+
+    var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+
+    app.MapScalarApiReference(option =>
+    {
+        option.Title = "Demo - Royal Villa API";
+
+        var sortedVersion = provider.ApiVersionDescriptions.OrderBy(v => v.ApiVersion).ToList();
+
+        foreach (var desc in sortedVersion)
+        {
+            var versionName = desc.GroupName;
+            var versionNumber = desc.ApiVersion.ToString();
+            var displayName = $"Demo API -- {versionNumber}";
+
+            var isdefault = desc.ApiVersion.Equals(new ApiVersion(2, 0));
+
+            option.AddDocument(versionName, displayName, $"/openapi/{versionName}.json", isdefault);
+        }
+
+    });
 }
 
 app.UseHttpsRedirection();
