@@ -28,17 +28,106 @@ namespace RoyalVilla_API.Controllers.V2
         //[Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<VillaDTO>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse<IEnumerable<VillaDTO>>>> GetVillas(string? nameSearch)
+        public async Task<ActionResult<ApiResponse<IEnumerable<VillaDTO>>>> GetVillas([FromQuery] string? filterBy, [FromQuery] string? filterQuery, [FromQuery] string? sortBy, [FromQuery] string? sortOrder = "asc", [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var villasQuery = _db.Villa.AsQueryable();
-            if(!string.IsNullOrEmpty(nameSearch))
+            if(page < 1)
             {
-                villasQuery = villasQuery.Where(x => x.Name.ToLower().Contains(nameSearch.ToLower()));
+                page = 1;
+            }
+            if(pageSize<1)
+            {
+                pageSize = 10;
+            }
+            if(pageSize > 100)
+            {
+                pageSize = 100;
             }
 
-            var villas = await villasQuery.ToListAsync();
+            var villasQuery = _db.Villa.AsQueryable();
+            if(!string.IsNullOrEmpty(filterQuery) && !string.IsNullOrEmpty(filterBy))
+            {
+                switch(filterBy.ToLower())
+                {
+                    case "name":
+                        villasQuery = villasQuery.Where(x => x.Name.ToLower().Contains(filterQuery.ToLower()));
+                        break;
+                    case "details":
+                        villasQuery = villasQuery.Where(x => x.Details.ToLower().Contains(filterQuery.ToLower()));
+                        break;
+                    case "rate":
+                        if (double.TryParse(filterQuery, out double rate))
+                        {
+                            villasQuery = villasQuery.Where(x => x.Rate == rate);
+                        }
+                        break;
+                    case "minrate":
+                        if (double.TryParse(filterQuery, out double minrate))
+                        {
+                            villasQuery = villasQuery.Where(x => x.Rate >= minrate);
+                        }
+                        break;
+                    case "maxrate":
+                        if (double.TryParse(filterQuery, out double maxrate))
+                        {
+                            villasQuery = villasQuery.Where(x => x.Rate <= maxrate);
+                        }
+                        break;
+                    case "occupancy":
+                        if (int.TryParse(filterQuery, out int occupancy))
+                        {
+                            villasQuery = villasQuery.Where(x => x.Occupancy == occupancy);
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            //sorting
+            if (!string.IsNullOrEmpty(sortBy))
+            {
+                var isDescending = sortOrder?.ToLower() == "desc";
+                villasQuery = sortBy.ToLower() switch
+                {
+                    "name" => isDescending ? villasQuery.OrderByDescending(x => x.Name) : villasQuery.OrderBy(x => x.Name),
+                    "rate" => isDescending ? villasQuery.OrderByDescending(x => x.Rate) : villasQuery.OrderBy(x => x.Rate),
+                    "occupancy" => isDescending ? villasQuery.OrderByDescending(x => x.Occupancy) : villasQuery.OrderBy(x => x.Occupancy),
+                    "sqft" => isDescending ? villasQuery.OrderByDescending(x => x.Sqft) : villasQuery.OrderBy(x => x.Sqft),
+                    "id" => isDescending ? villasQuery.OrderByDescending(x => x.Id) : villasQuery.OrderBy(x => x.Id),
+                    _ => villasQuery.OrderBy(x => x.Id)
+                };
+            }
+            else
+            {
+                villasQuery = villasQuery.OrderBy(x => x.Id);
+            }
+
+            var skip = (page - 1) * pageSize;
+            var totalCount = await villasQuery.CountAsync();
+            var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+            var villas = await villasQuery.Skip(skip).Take(pageSize).ToListAsync();
             var dtoResponseVilla = _mapper.Map<List<VillaDTO>>(villas);
-            var response = ApiResponse<IEnumerable<VillaDTO>>.Ok(dtoResponseVilla, "Villas Retrived Successfully");
+
+            var messageBuilder = new System.Text.StringBuilder();
+            messageBuilder.Append($"Successfully Retrived {dtoResponseVilla.Count} villas.");
+            messageBuilder.Append($" Page {page} of {totalPages}, {totalCount} total records.");
+
+            if (!string.IsNullOrEmpty(filterQuery) && !string.IsNullOrEmpty(filterBy))
+            {
+                messageBuilder.Append($" Filtered by {filterBy} with query '{filterQuery}'.");
+            }
+            if (!string.IsNullOrEmpty(sortBy))
+            {
+                messageBuilder.Append($" Sorted by {sortBy} ");
+            }
+
+            Response.Headers.Add("X-Pagination-CurrentPage", page.ToString());
+            Response.Headers.Add("X-Pagination-PageSizes", pageSize.ToString());
+            Response.Headers.Add("X-Pagination-TotalCount", totalCount.ToString());
+            Response.Headers.Add("X-Pagination-TotalPages", totalPages.ToString());
+
+            var response = ApiResponse<IEnumerable<VillaDTO>>.Ok(dtoResponseVilla, messageBuilder.ToString());
             return Ok(response);
         }
 
