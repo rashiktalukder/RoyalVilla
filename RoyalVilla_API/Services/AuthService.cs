@@ -37,21 +37,32 @@ namespace RoyalVilla_API.Services
         {
             try
             {
-                var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == loginRequestDTO.Email.ToLower());
+                var user = await _userManager.FindByEmailAsync(loginRequestDTO.Email);
 
-                if (user == null || user.Password != loginRequestDTO.Password)
+                if (user == null)
+                {
+                    return null;
+                }
+
+                var isValid = await _userManager.CheckPasswordAsync(user, loginRequestDTO.Password);
+
+                if (!isValid)
                 {
                     return null;
                 }
 
                 //generate token
-                var token = GenerateJwtToken(user);
+                var token = await GenerateJwtToken(user);
+                var roles = await _userManager.GetRolesAsync(user);
 
-                return new LoginResponseDTO
+                LoginResponseDTO loginResponseDTO = new LoginResponseDTO
                 {
-                    UserDTO = _mapper.Map<UserDTO>(user),
-                    Token = token
+                    Token = token,
+                    UserDTO = _mapper.Map<UserDTO>(user)
                 };
+                loginResponseDTO.UserDTO.Role = roles.FirstOrDefault() ?? "Customer";
+
+                return loginResponseDTO;
             }
             catch(Exception ex)
             {
@@ -102,10 +113,10 @@ namespace RoyalVilla_API.Services
             }
         }
 
-        private string GenerateJwtToken(User user)
+        private async Task<string> GenerateJwtToken(ApplicationUser user)
         {
             var key = Encoding.ASCII.GetBytes(_configuration.GetSection("JwtSettings")["Secret"]);
-
+            var roles = await _userManager.GetRolesAsync(user);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
@@ -113,7 +124,7 @@ namespace RoyalVilla_API.Services
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Name, user.Name),
-                    new Claim(ClaimTypes.Role, user.Role),
+                    new Claim(ClaimTypes.Role, roles.FirstOrDefault()),
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)

@@ -5,14 +5,14 @@ using RoyalVilla_API.Models;
 
 namespace RoyalVilla_API.Data
 {
-    public class ApplicationDbContext : IdentityDbContext
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions options) : base(options)
         {
              
         }
         public DbSet<Villa> Villa { get; set; }
-        public DbSet<User> Users { get; set; }
+        //public DbSet<User> Users { get; set; }
         public DbSet<VillaAmenities> VillaAmenities { get; set; }
         public DbSet<ApplicationUser> ApplicationUsers { get; set; }
 
